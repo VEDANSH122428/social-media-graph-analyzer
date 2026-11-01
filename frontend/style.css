@@ -1,0 +1,56 @@
+:root {
+  --bg: #0f1419;
+  --panel: #182028;
+  --border: #2a3541;
+  --text: #e6edf3;
+  --muted: #8b98a5;
+  --accent: #4da3ff;
+  --error: #ff6b6b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, Segoe UI, Roboto, sans-serif;
+}
+
+header { padding: 24px 20px 8px; max-width: 1000px; margin: 0 auto; }
+header h1 { margin: 0; font-size: 1.6rem; }
+header p { margin: 4px 0 0; color: var(--muted); }
+
+main { max-width: 1000px; margin: 0 auto; padding: 12px 20px 40px; display: grid; gap: 16px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.card .label { color: var(--muted); font-size: 0.8rem; }
+.card .value { font-size: 1.4rem; font-weight: 600; margin-top: 4px; }
+
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.panel h2 { margin: 0 0 12px; font-size: 1.05rem; }
+
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+input, select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 10px; font-size: 0.95rem; min-width: 0;
+}
+input { flex: 1 1 120px; }
+button {
+  background: var(--accent); color: #05121f; border: 0; border-radius: 6px;
+  padding: 8px 16px; font-weight: 600; cursor: pointer;
+}
+button:hover { filter: brightness(1.1); }
+
+.out { margin-top: 12px; overflow-x: auto; }
+.out .error { color: var(--error); }
+.out .muted { color: var(--muted); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip { background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 0.85rem; }
+.arrow { color: var(--muted); }
+
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 500; font-size: 0.85rem; }

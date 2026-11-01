@@ -5,6 +5,10 @@
 #endif
 
 #include "Api.h"
+#include "Connectivity.h"
+#include "Ranking.h"
+#include "Recommend.h"
+#include "Traversal.h"
 #include "third_party/httplib.h"
 #include "third_party/json.hpp"
 
@@ -28,9 +32,30 @@ static bool readInt(const httplib::Request& req, const char* name, int& out) {
     catch (...) { return false; }
 }
 
+// file id -> internal id
+static bool toInternal(const CSRGraph& g, int orig, int& u) {
+    auto it = g.internal_id.find(orig);
+    if (it == g.internal_id.end()) return false;
+    u = it->second;
+    return true;
+}
+
+static vector<int> componentSizes(const vector<int>& comp) {
+    int maxId = -1;
+    for (int c : comp) maxId = max(maxId, c);
+    vector<int> sz(maxId + 1, 0);
+    for (int c : comp) sz[c]++;
+    return sz;
+}
+
 void startServer(const CSRGraph& g, int port) {
     httplib::Server svr;
     svr.set_mount_point("/", "./frontend");   // serves the dashboard (run from project root)
+
+    // computed once at startup
+    vector<double> pr = pageRank(g);
+    vector<int> comp = connectedComponents(g);
+    vector<int> csize = componentSizes(comp);
 
     svr.Get("/stats", [&](const httplib::Request&, httplib::Response& res) {
         GraphStats s = computeStats(g);
@@ -42,11 +67,9 @@ void startServer(const CSRGraph& g, int port) {
     });
 
     svr.Get("/neighbors", [&](const httplib::Request& req, httplib::Response& res) {
-        int orig;
+        int orig, u;
         if (!readInt(req, "node", orig)) { sendJson(res, {{"error", "node parameter required"}}, 400); return; }
-        auto it = g.internal_id.find(orig);
-        if (it == g.internal_id.end()) { sendJson(res, {{"error", "node not found"}}, 404); return; }
-        int u = it->second;
+        if (!toInternal(g, orig, u)) { sendJson(res, {{"error", "node not found"}}, 404); return; }
         json nb = json::array();
         for (const int* p = g.begin(u); p != g.end(u); ++p) nb.push_back(g.original_id[*p]);
         sendJson(res, {{"node", orig}, {"degree", g.degree(u)}, {"neighbors", nb}});
@@ -69,11 +92,68 @@ void startServer(const CSRGraph& g, int port) {
         sendJson(res, {{"by", "degree"}, {"top", arr}});
     });
 
-    // TODO as teammates finish (use g.internal_id / g.original_id to convert ids):
-    //   /shortest-path?src=&dst=   -> Kavya's shortestPath()
-    //   /pagerank?k=               -> Kavya's pageRank() + topK()
-    //   /components                -> Mohita's connectedComponents()
-    //   /recommend?node=&k=        -> Mohita's recommend()
+    svr.Get("/pagerank", [&](const httplib::Request& req, httplib::Response& res) {
+        int k = 10;
+        readInt(req, "k", k);
+        k = max(1, min(k, g.N));
+        json arr = json::array();
+        for (auto& p : topK(pr, k))
+            arr.push_back({{"node", g.original_id[p.first]}, {"score", p.second}, {"degree", g.degree(p.first)}});
+        sendJson(res, {{"by", "pagerank"}, {"top", arr}});
+    });
+
+    svr.Get("/shortest-path", [&](const httplib::Request& req, httplib::Response& res) {
+        int so, to, s, t;
+        if (!readInt(req, "src", so) || !readInt(req, "dst", to)) {
+            sendJson(res, {{"error", "src and dst parameters required"}}, 400); return;
+        }
+        if (!toInternal(g, so, s) || !toInternal(g, to, t)) {
+            sendJson(res, {{"error", "node not found"}}, 404); return;
+        }
+        vector<int> path = shortestPath(g, s, t);
+        json arr = json::array();
+        for (int x : path) arr.push_back(g.original_id[x]);
+        sendJson(res, {{"src", so}, {"dst", to}, {"found", !path.empty()},
+                       {"length", path.empty() ? -1 : (int)path.size() - 1}, {"path", arr}});
+    });
+
+    svr.Get("/traverse", [&](const httplib::Request& req, httplib::Response& res) {
+        int orig, u, limit = 50;
+        if (!readInt(req, "node", orig)) { sendJson(res, {{"error", "node parameter required"}}, 400); return; }
+        if (!toInternal(g, orig, u)) { sendJson(res, {{"error", "node not found"}}, 404); return; }
+        readInt(req, "limit", limit);
+        string type = req.has_param("type") ? req.get_param_value("type") : "bfs";
+        vector<int> order = (type == "dfs") ? dfsOrder(g, u) : bfsOrder(g, u);
+        json arr = json::array();
+        for (size_t i = 0; i < order.size() && (int)i < limit; i++) arr.push_back(g.original_id[order[i]]);
+        sendJson(res, {{"type", type}, {"visited", (int)order.size()}, {"order", arr}});
+    });
+
+    svr.Get("/components", [&](const httplib::Request& req, httplib::Response& res) {
+        vector<int> sorted = csize;
+        sort(sorted.begin(), sorted.end(), greater<int>());
+        json top = json::array();
+        for (size_t i = 0; i < sorted.size() && i < 10; i++) top.push_back(sorted[i]);
+        json out = {{"count", (int)csize.size()}, {"largest", sorted.empty() ? 0 : sorted[0]}, {"topSizes", top}};
+        int orig, u;
+        if (readInt(req, "node", orig) && toInternal(g, orig, u)) {
+            out["node"] = orig;
+            out["componentId"] = comp[u];
+            out["componentSize"] = csize[comp[u]];
+        }
+        sendJson(res, out);
+    });
+
+    svr.Get("/recommend", [&](const httplib::Request& req, httplib::Response& res) {
+        int orig, u, k = 5;
+        if (!readInt(req, "node", orig)) { sendJson(res, {{"error", "node parameter required"}}, 400); return; }
+        if (!toInternal(g, orig, u)) { sendJson(res, {{"error", "node not found"}}, 404); return; }
+        readInt(req, "k", k);
+        json arr = json::array();
+        for (auto& r : recommend(g, u, k))
+            arr.push_back({{"node", g.original_id[r.node]}, {"score", r.score}});
+        sendJson(res, {{"node", orig}, {"recommendations", arr}});
+    });
 
     cout << "Server running at http://localhost:" << port << "\n";
     if (!svr.listen("127.0.0.1", port)) cerr << "Could not start server on port " << port << "\n";

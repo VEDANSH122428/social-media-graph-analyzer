@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Social Network Graph Analyzer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Social Network Graph Analyzer</h1>
+    <p>C++ CSR graph engine &middot; DSA project</p>
+  </header>
+
+  <main>
+    <section id="stats" class="cards"></section>
+
+    <section class="panel">
+      <h2>Shortest path</h2>
+      <form id="pathForm" class="row">
+        <input id="pathSrc" type="number" placeholder="Source id" required>
+        <input id="pathDst" type="number" placeholder="Target id" required>
+        <button type="submit">Find path</button>
+      </form>
+      <div id="pathOut" class="out"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Node lookup</h2>
+      <form id="nodeForm" class="row">
+        <input id="nodeId" type="number" placeholder="Node id" required>
+        <select id="travType">
+          <option value="bfs">BFS order</option>
+          <option value="dfs">DFS order</option>
+        </select>
+        <button type="submit">Look up</button>
+      </form>
+      <div id="nodeOut" class="out"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Top nodes</h2>
+      <form id="topForm" class="row">
+        <select id="topBy">
+          <option value="pagerank">PageRank</option>
+          <option value="top">Degree</option>
+        </select>
+        <input id="topK" type="number" value="10" min="1" max="100">
+        <button type="submit">Show</button>
+      </form>
+      <div id="topOut" class="out"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Friend recommendations</h2>
+      <form id="recForm" class="row">
+        <input id="recNode" type="number" placeholder="Node id" required>
+        <input id="recK" type="number" value="5" min="1" max="50">
+        <button type="submit">Recommend</button>
+      </form>
+      <div id="recOut" class="out"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Connected components</h2>
+      <div id="compOut" class="out"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
